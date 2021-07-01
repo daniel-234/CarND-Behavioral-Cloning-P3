@@ -1,7 +1,7 @@
 import numpy as np
 import keras
 from keras.models import Sequential
-from keras.layers import Flatten, Dense
+from keras.layers import Flatten, Dense, Lambda, MaxPooling2D, Conv2D
 import csv
 import cv2
     
@@ -36,12 +36,24 @@ y_train = np.array(measurements)
 
 #print(X_train.shape)
 model = Sequential()
-# Pass the X_train dimensions as input shape.
-model.add(Flatten(input_shape=(160, 320,3)))
+# Add a Lambda layer and parallelize image normalization during training. 
+# pixel_normalized = pixel / 255
+# Center the image at 0 with pixels in range [-0.5, 0.5]
+# pixel_mean_centered = pixel_normalized - 0.5
+model.add(Lambda(lambda x: (x / 255.0) - 0.5, input_shape=(160, 320,3)))
+
+model.add(Conv2D(6, (5, 5), activation='relu'))
+model.add(MaxPooling2D(pool_size=(2, 2)))
+model.add(Conv2D(16, (5, 5), activation='relu'))
+model.add(MaxPooling2D(pool_size=(2, 2)))
+# Flatten the input.
+model.add(Flatten())
+model.add(Dense(120))
+model.add(Dense(84))
 # As we're doing regression here, we only need 1 output. 
 model.add(Dense(1))
 
 model.compile(optimizer='adam', loss='mse')
-model.fit(X_train, y_train, validation_split=0.2, shuffle=True)
+model.fit(X_train, y_train, validation_split=0.2, shuffle=True, nb_epoch=10)
 
 model.save('model.h5')
