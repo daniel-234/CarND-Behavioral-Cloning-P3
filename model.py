@@ -24,14 +24,17 @@ for line in lines:
     local_path = './data/' + filename
     # Read the image and append ot to the list. 
     image = cv2.imread(local_path)
-    images.append(image)
+    # Convert the image to RGB format, as the file that handles
+    # simulation uses that format (while cv2 uses BGR). 
+    image_rgb = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+    images.append(image_rgb)
     # Read the 4th column from the CSV file, that is
     # the stearing angle and save it to another list. 
     measurement = line[3]
     measurements.append(measurement)
     # Augment the dataset for a more robust set of measurements.
     # Flip the image.
-    image_flipped = cv2.flip(image, -1)
+    image_flipped = cv2.flip(image_rgb, -1)
     # Take the opposite sign of the steering measurement. 
     measurement_flipped = float(measurement) * -1.0
     # Append the results to the images and measurements lists. 
@@ -66,6 +69,6 @@ model.add(Dense(84))
 model.add(Dense(1))
 
 model.compile(optimizer='adam', loss='mse')
-model.fit(X_train, y_train, validation_split=0.2, shuffle=True, nb_epoch=5)
+model.fit(X_train, y_train, validation_split=0.2, shuffle=True, epochs=5)
 
 model.save('model.h5')
