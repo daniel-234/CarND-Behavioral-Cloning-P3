@@ -29,10 +29,22 @@ for line in lines:
     # the stearing angle and save it to another list. 
     measurement = line[3]
     measurements.append(measurement)
+    # Augment the dataset for a more robust set of measurements.
+    # Flip the image.
+    image_flipped = cv2.flip(image, -1)
+    # Take the opposite sign of the steering measurement. 
+    measurement_flipped = float(measurement) * -1.0
+    # Append the results to the images and measurements lists. 
+    images.append(image_flipped)
+    measurements.append(measurement_flipped)
     
 # Create the training and label Numpy arrays. 
 X_train = np.array(images)
 y_train = np.array(measurements)
+
+# Check that the X_train array has double the elements of lines.
+print(len(lines))
+print(X_train.shape)
 
 #print(X_train.shape)
 model = Sequential()
@@ -54,6 +66,6 @@ model.add(Dense(84))
 model.add(Dense(1))
 
 model.compile(optimizer='adam', loss='mse')
-model.fit(X_train, y_train, validation_split=0.2, shuffle=True, nb_epoch=10)
+model.fit(X_train, y_train, validation_split=0.2, shuffle=True, nb_epoch=5)
 
 model.save('model.h5')
