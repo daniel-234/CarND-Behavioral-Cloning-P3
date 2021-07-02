@@ -1,7 +1,7 @@
 import numpy as np
 import keras
 from keras.models import Sequential
-from keras.layers import Flatten, Dense, Lambda, MaxPooling2D, Conv2D
+from keras.layers import Flatten, Dense, Lambda, MaxPooling2D, Conv2D, Cropping2D
 import csv
 import cv2
     
@@ -29,6 +29,7 @@ def process_image(image_name, steering_angle):
     images.append(image_flipped)
     measurements.append(steering_angle_flipped)
 
+
 # Read images and measurements from a row of the CSV file. 
 def process_line(line):  
     # Read the 4th column from the CSV file, that is the stearing 
@@ -37,7 +38,7 @@ def process_line(line):
     # Create a correction coefficient to apply to the left and right cameras.
     # The purpose of this correction is to teach the model to steer and recover
     # when it gets a little bit off track from the center.
-    steering_correction = 0.095
+    steering_correction = 0.06
     # Apply a positive correction to the left image to make it go back to the
     # center towards the right.
     steering_left = steering_center + steering_correction
@@ -67,11 +68,18 @@ print(X_train.shape)
 
 #print(X_train.shape)
 model = Sequential()
+# Crop the images, as the top portion captures trees, hills and the sky,
+# while the bottom portion captures the hood of the car. 
+# Set up cropping layer. By adding the functionality to crop the images
+# to the model, we can use the parallelization offered by the GPU so 
+# that many images are cropped simultaneously. 
+model.add(Cropping2D(cropping=((50, 20), (0,0)), input_shape=(160, 320, 3)))
 # Add a Lambda layer and parallelize image normalization during training. 
 # pixel_normalized = pixel / 255
 # Center the image at 0 with pixels in range [-0.5, 0.5]
 # pixel_mean_centered = pixel_normalized - 0.5
-model.add(Lambda(lambda x: (x / 255.0) - 0.5, input_shape=(160, 320,3)))
+# After cropping vertically, images have now shape (90, 320, 3)
+model.add(Lambda(lambda x: (x / 255.0) - 0.5, input_shape=(90, 320, 3)))
 
 model.add(Conv2D(6, (5, 5), activation='relu'))
 model.add(MaxPooling2D(pool_size=(2, 2)))
@@ -85,6 +93,6 @@ model.add(Dense(84))
 model.add(Dense(1))
 
 model.compile(optimizer='adam', loss='mse')
-model.fit(X_train, y_train, validation_split=0.2, shuffle=True, epochs=3)
+model.fit(X_train, y_train, validation_split=0.2, shuffle=True, epochs=5)
 
 model.save('model.h5')
