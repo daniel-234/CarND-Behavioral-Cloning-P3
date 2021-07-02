@@ -46,7 +46,9 @@ def process_line(line):
     steering_right = steering_center - steering_correction
     # Read images from the center, left and right cameras (N.B. left and right paths 
     # have leading space that needs to be removed).
-    image_center, image_left, image_right = line[0].strip(), line[1].strip(), line[2].strip()
+    image_center = line[0].strip()
+    image_left = line[1].strip()
+    image_right = line[2].strip()
     process_image(image_center, steering_center)
     process_image(image_left, steering_left)
     process_image(image_right, steering_right)
@@ -81,14 +83,15 @@ model.add(Cropping2D(cropping=((50, 20), (0,0)), input_shape=(160, 320, 3)))
 # After cropping vertically, images have now shape (90, 320, 3)
 model.add(Lambda(lambda x: (x / 255.0) - 0.5, input_shape=(90, 320, 3)))
 
-model.add(Conv2D(6, (5, 5), activation='relu'))
-model.add(MaxPooling2D(pool_size=(2, 2)))
-model.add(Conv2D(16, (5, 5), activation='relu'))
-model.add(MaxPooling2D(pool_size=(2, 2)))
+model.add(Conv2D(24, (5, 5), strides=(2, 2), activation='relu'))
+model.add(Conv2D(36, (5, 5), strides=(2, 2), activation='relu'))
+model.add(Conv2D(48, (5, 5), strides=(2, 2), activation='relu'))
+model.add(Conv2D(64, (5, 5), activation='relu'))
 # Flatten the input.
 model.add(Flatten())
-model.add(Dense(120))
-model.add(Dense(84))
+model.add(Dense(1164))
+model.add(Dense(100))
+model.add(Dense(50))
 # As we're doing regression here, we only need 1 output. 
 model.add(Dense(1))
 
