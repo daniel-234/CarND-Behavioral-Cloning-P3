@@ -9,30 +9,46 @@ import cv2
 images = []
 measurements = []
 
-# Read images and measurements from a row of the CSV file. 
-def process_line(line):  
-    # Read the path to the center image. 
-    filename = line[0]
+# Read an image and its measured steering angle.    
+def process_image(image_name, steering_angle):
     # Build the local path to the image.  
-    local_path = './data/' + filename
+    local_path = './data/' + image_name
     # Read the image and append ot to the list. 
     image = cv2.imread(local_path)
     # Convert the image to RGB format, as the file that handles
     # simulation uses that format (while cv2 uses BGR). 
     image_rgb = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
     images.append(image_rgb)
-    # Read the 4th column from the CSV file, that is
-    # the stearing angle and save it to another list. 
-    measurement = line[3]
-    measurements.append(measurement)
+    measurements.append(steering_angle)
     # Augment the dataset for a more robust set of measurements.
     # Flip the image.
     image_flipped = cv2.flip(image_rgb, -1)
     # Take the opposite sign of the steering measurement. 
-    measurement_flipped = float(measurement) * -1.0
+    steering_angle_flipped = steering_angle * -1.0
     # Append the results to the images and measurements lists. 
     images.append(image_flipped)
-    measurements.append(measurement_flipped)
+    measurements.append(steering_angle_flipped)
+
+# Read images and measurements from a row of the CSV file. 
+def process_line(line):  
+    # Read the 4th column from the CSV file, that is the stearing 
+    # center angle and save it to the measurements list. 
+    steering_center = float(line[3])
+    # Create a correction coefficient to apply to the left and right cameras.
+    # The purpose of this correction is to teach the model to steer and recover
+    # when it gets a little bit off track from the center.
+    steering_correction = 0.095
+    # Apply a positive correction to the left image to make it go back to the
+    # center towards the right.
+    steering_left = steering_center + steering_correction
+    # Apply a negative correction to the right image to make it go towards the left.
+    steering_right = steering_center - steering_correction
+    # Read images from the center, left and right cameras (N.B. left and right paths 
+    # have leading space that needs to be removed).
+    image_center, image_left, image_right = line[0].strip(), line[1].strip(), line[2].strip()
+    process_image(image_center, steering_center)
+    process_image(image_left, steering_left)
+    process_image(image_right, steering_right)
 
 # Open the CSV file.
 with open('./data/driving_log.csv', 'r') as csvfile:
@@ -69,6 +85,6 @@ model.add(Dense(84))
 model.add(Dense(1))
 
 model.compile(optimizer='adam', loss='mse')
-model.fit(X_train, y_train, validation_split=0.2, shuffle=True, epochs=5)
+model.fit(X_train, y_train, validation_split=0.2, shuffle=True, epochs=3)
 
 model.save('model.h5')
