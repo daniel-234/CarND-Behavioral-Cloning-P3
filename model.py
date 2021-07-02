@@ -5,19 +5,12 @@ from keras.layers import Flatten, Dense, Lambda, MaxPooling2D, Conv2D
 import csv
 import cv2
     
-# Store the rows of the csv file in a list. 
-lines = []
-
-with open('./data/driving_log.csv') as csvfile:
-    reader = csv.reader(csvfile)
-    next(reader)
-    for line in reader:
-        lines.append(line)
-        
+# Store the images and steering measurements of the csv file in lists. 
 images = []
 measurements = []
 
-for line in lines:
+# Read images and measurements from a row of the CSV file. 
+def process_line(line):  
     # Read the path to the center image. 
     filename = line[0]
     # Build the local path to the image.  
@@ -40,13 +33,20 @@ for line in lines:
     # Append the results to the images and measurements lists. 
     images.append(image_flipped)
     measurements.append(measurement_flipped)
+
+# Open the CSV file.
+with open('./data/driving_log.csv', 'r') as csvfile:
+    reader = csv.reader(csvfile)
+    next(reader)
+    for line in reader:
+        process_line(line)
     
 # Create the training and label Numpy arrays. 
 X_train = np.array(images)
 y_train = np.array(measurements)
 
 # Check that the X_train array has double the elements of lines.
-print(len(lines))
+print(len(images))
 print(X_train.shape)
 
 #print(X_train.shape)
