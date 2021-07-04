@@ -3,6 +3,7 @@ import math
 from keras.models import Sequential
 from keras.layers import Flatten, Dense, Lambda, MaxPooling2D, Conv2D, Cropping2D
 from keras.callbacks import EarlyStopping
+from keras.optimizers import SGD
 from sklearn.utils import shuffle
 from sklearn.model_selection import train_test_split
 import csv
@@ -134,7 +135,8 @@ model.add(Dense(50))
 # As we're doing regression here, we only need 1 output. 
 model.add(Dense(1))
 
-model.compile(optimizer='adam', loss='mse')
+opt = SGD(lr = 0.001, momentum = 0.9)
+model.compile(optimizer=opt, loss='mean_squared_logarithmic_error')
 
 model.summary()
 
@@ -142,7 +144,8 @@ callback = EarlyStopping(monitor='val_loss', patience = 1)
 
 history_object = model.fit_generator(train_generator, steps_per_epoch=math.ceil(len(train_samples)/batch_size), 
                     validation_data=validation_generator, validation_steps=math.ceil(len(validation_samples)/batch_size), 
-                    epochs=3, verbose=1, callbacks=[callback])
+                    epochs=3, verbose=1)
+                                     #, callbacks=[callback])
 
 ### plot the training and validation loss for each epoch
 plt.plot(history_object.history['loss'])
