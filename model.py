@@ -1,16 +1,21 @@
 import numpy as np
-import keras
+import math
 from keras.models import Sequential
 from keras.layers import Flatten, Dense, Lambda, MaxPooling2D, Conv2D, Cropping2D
+from keras.callbacks import EarlyStopping
+from sklearn.utils import shuffle
+from sklearn.model_selection import train_test_split
 import csv
 import cv2
+import matplotlib.pyplot as plt
     
-# Store the images and steering measurements of the csv file in lists. 
-images = []
-measurements = []
+samples = []
 
 # Read an image and its measured steering angle.    
 def process_image(image_name, steering_angle):
+    images = [] 
+    measurements = []
+    
     # Build the local path to the image.  
     local_path = './data/' + image_name
     # Read the image and append ot to the list. 
@@ -18,7 +23,7 @@ def process_image(image_name, steering_angle):
     # Convert the image to RGB format, as the file that handles
     # simulation uses that format (while cv2 uses BGR). 
     image_rgb = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
-    images.append(image_rgb)
+    images.append(image_rgb)    
     measurements.append(steering_angle)
     # Augment the dataset for a more robust set of measurements.
     # Flip the image.
@@ -28,6 +33,8 @@ def process_image(image_name, steering_angle):
     # Append the results to the images and measurements lists. 
     images.append(image_flipped)
     measurements.append(steering_angle_flipped)
+        
+    return images, measurements
 
 
 # Read images and measurements from a row of the CSV file. 
@@ -49,26 +56,58 @@ def process_line(line):
     image_center = line[0].strip()
     image_left = line[1].strip()
     image_right = line[2].strip()
-    process_image(image_center, steering_center)
-    process_image(image_left, steering_left)
-    process_image(image_right, steering_right)
+    
+    images_center, measurements_center = process_image(image_center, steering_center)
+    images_left, measurements_left = process_image(image_left, steering_left)
+    images_right, measurements_right =  process_image(image_right, steering_right)
+    
+    return images_center, images_left, images_right, measurements_center, measurements_left, measurements_right
 
+def generator(samples, batch_size = 32):
+    num_samples = len(samples)
+    while 1: # The generator never terminates
+        # Shuffle the whole dataset.
+        samples = shuffle(samples)
+        for offset in range(0, num_samples, batch_size):
+            batch_samples = samples[offset : offset + batch_size]
+            
+            # Store the images and steering measurements of the csv file in lists. 
+            images = []
+            measurements = []
+            
+            for batch_sample in batch_samples:                
+                images_center, images_left, images_right, measurements_center, measurements_left, measurements_right = process_line(batch_sample)
+                
+                # Extend the images and measurements array with the new images collected (instead of appending them as new arrays).
+                # See https://stackoverflow.com/questions/252703/what-is-the-difference-between-pythons-list-methods-append-and-extend
+                images.extend(images_center)
+                images.extend(images_left)
+                images.extend(images_right)
+                measurements.extend(measurements_center)
+                measurements.extend(measurements_left)
+                measurements.extend(measurements_right)
+                
+            # Create the training samples and labels Numpy arrays. 
+            X_train = np.array(images)
+            y_train = np.array(measurements)
+            
+            yield shuffle(X_train, y_train)
+    
 # Open the CSV file.
 with open('./data/driving_log.csv', 'r') as csvfile:
     reader = csv.reader(csvfile)
     next(reader)
     for line in reader:
-        process_line(line)
-    
-# Create the training and label Numpy arrays. 
-X_train = np.array(images)
-y_train = np.array(measurements)
+        samples.append(line)
+        
+train_samples, validation_samples = train_test_split(samples, test_size = 0.2)
+        
+# Set the desired batch size.
+batch_size = 64
+# Create generators for the training and validation data.
+train_generator = generator(train_samples, batch_size = batch_size)
+validation_generator = generator(validation_samples, batch_size = batch_size)
 
-# Check that the X_train array has double the elements of lines.
-print(len(images))
-print(X_train.shape)
-
-#print(X_train.shape)
 model = Sequential()
 # Crop the images, as the top portion captures trees, hills and the sky,
 # while the bottom portion captures the hood of the car. 
@@ -82,7 +121,7 @@ model.add(Cropping2D(cropping=((50, 20), (0,0)), input_shape=(160, 320, 3)))
 # pixel_mean_centered = pixel_normalized - 0.5
 # After cropping vertically, images have now shape (90, 320, 3)
 model.add(Lambda(lambda x: (x / 255.0) - 0.5, input_shape=(90, 320, 3)))
-
+# NVidia training architecture. 
 model.add(Conv2D(24, (5, 5), strides=(2, 2), activation='relu'))
 model.add(Conv2D(36, (5, 5), strides=(2, 2), activation='relu'))
 model.add(Conv2D(48, (5, 5), strides=(2, 2), activation='relu'))
@@ -96,6 +135,22 @@ model.add(Dense(50))
 model.add(Dense(1))
 
 model.compile(optimizer='adam', loss='mse')
-model.fit(X_train, y_train, validation_split=0.2, shuffle=True, epochs=5)
+
+model.summary()
+
+callback = EarlyStopping(monitor='val_loss', patience = 1)
+
+history_object = model.fit_generator(train_generator, steps_per_epoch=math.ceil(len(train_samples)/batch_size), 
+                    validation_data=validation_generator, validation_steps=math.ceil(len(validation_samples)/batch_size), 
+                    epochs=3, verbose=1, callbacks=[callback])
+
+### plot the training and validation loss for each epoch
+plt.plot(history_object.history['loss'])
+plt.plot(history_object.history['val_loss'])
+plt.title('model mean squared error loss')
+plt.ylabel('mean squared error loss')
+plt.xlabel('epoch')
+plt.legend(['training set', 'validation set'], loc='upper right')
+plt.show()
 
 model.save('model.h5')
