@@ -1,9 +1,10 @@
 import numpy as np
 import math
 from keras.models import Sequential
-from keras.layers import Flatten, Dense, Lambda, MaxPooling2D, Conv2D, Cropping2D
+from keras.layers import Flatten, Dense, Lambda, MaxPooling2D, Conv2D, Cropping2D, Dropout
 from keras.callbacks import EarlyStopping
 from keras.optimizers import SGD
+from keras.regularizers import l2
 from sklearn.utils import shuffle
 from sklearn.model_selection import train_test_split
 import csv
@@ -109,6 +110,9 @@ batch_size = 64
 train_generator = generator(train_samples, batch_size = batch_size)
 validation_generator = generator(validation_samples, batch_size = batch_size)
 
+# Create a L2 reguralizer
+reg = l2(0.01)
+
 model = Sequential()
 # Crop the images, as the top portion captures trees, hills and the sky,
 # while the bottom portion captures the hood of the car. 
@@ -123,13 +127,14 @@ model.add(Cropping2D(cropping=((50, 20), (0,0)), input_shape=(160, 320, 3)))
 # After cropping vertically, images have now shape (90, 320, 3)
 model.add(Lambda(lambda x: (x / 255.0) - 0.5, input_shape=(90, 320, 3)))
 # NVidia training architecture. 
-model.add(Conv2D(24, (5, 5), strides=(2, 2), activation='relu'))
-model.add(Conv2D(36, (5, 5), strides=(2, 2), activation='relu'))
-model.add(Conv2D(48, (5, 5), strides=(2, 2), activation='relu'))
-model.add(Conv2D(64, (5, 5), activation='relu'))
+model.add(Conv2D(24, (5, 5), strides=(2, 2), activation='relu', kernel_regularizer=l2(0.001)))
+model.add(Conv2D(36, (5, 5), strides=(2, 2), activation='relu', kernel_regularizer=l2(0.001)))
+model.add(Conv2D(48, (5, 5), strides=(2, 2), activation='relu', kernel_regularizer=l2(0.001)))
+model.add(Conv2D(64, (5, 5), activation='relu', kernel_regularizer=l2(0.001)))
 # Flatten the input.
 model.add(Flatten())
 model.add(Dense(1164))
+model.add(Dropout(0.5))
 model.add(Dense(100))
 model.add(Dense(50))
 # As we're doing regression here, we only need 1 output. 
@@ -140,12 +145,11 @@ model.compile(optimizer=opt, loss='mean_squared_logarithmic_error')
 
 model.summary()
 
-callback = EarlyStopping(monitor='val_loss', patience = 1)
+callback = EarlyStopping(monitor='val_loss', patience = 2)
 
 history_object = model.fit_generator(train_generator, steps_per_epoch=math.ceil(len(train_samples)/batch_size), 
                     validation_data=validation_generator, validation_steps=math.ceil(len(validation_samples)/batch_size), 
-                    epochs=3, verbose=1)
-                                     #, callbacks=[callback])
+                    epochs=10, verbose=1, callbacks=[callback])
 
 ### plot the training and validation loss for each epoch
 plt.plot(history_object.history['loss'])
