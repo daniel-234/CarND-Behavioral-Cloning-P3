@@ -20,7 +20,7 @@ def process_image(image_name, steering_angle):
     measurements = []
     
     # Build the local path to the image.  
-    local_path = './data/' + image_name
+    local_path = '../../..' + image_name
     # Read the image and append ot to the list. 
     image = cv2.imread(local_path)
     # Convert the image to RGB format, as the file that handles
@@ -97,7 +97,7 @@ def generator(samples, batch_size = 32):
             yield shuffle(X_train, y_train)
     
 # Open the CSV file.
-with open('./data/driving_log.csv', 'r') as csvfile:
+with open('../../../opt/data/driving_log.csv', 'r') as csvfile:
     reader = csv.reader(csvfile)
     next(reader)
     for line in reader:
@@ -106,7 +106,7 @@ with open('./data/driving_log.csv', 'r') as csvfile:
 train_samples, validation_samples = train_test_split(samples, test_size = 0.2)
         
 # Set the desired batch size.
-batch_size = 32
+batch_size = 64
 # Create generators for the training and validation data.
 train_generator = generator(train_samples, batch_size = batch_size)
 validation_generator = generator(validation_samples, batch_size = batch_size)
@@ -117,41 +117,41 @@ model = Sequential()
 # Set up cropping layer. By adding the functionality to crop the images
 # to the model, we can use the parallelization offered by the GPU so 
 # that many images are cropped simultaneously. 
-model.add(Cropping2D(cropping=((50, 20), (0,0)), input_shape=(160, 320, 3)))
+model.add(Cropping2D(cropping=((70, 25), (0,0)), input_shape=(160, 320, 3)))
 # Add a Lambda layer and parallelize image normalization during training. 
 # pixel_normalized = pixel / 255
 # Center the image at 0 with pixels in range [-0.5, 0.5]
 # pixel_mean_centered = pixel_normalized - 0.5
-# After cropping vertically, images have now shape (90, 320, 3)
-model.add(Lambda(lambda x: (x / 255.0) - 0.5, input_shape=(110, 320, 3)))
+# After cropping vertically, images have now shape (110, 320, 3)
+model.add(Lambda(lambda x: (x / 255.0) - 0.5, input_shape=(65, 320, 3)))
 # NVidia training architecture. 
-model.add(Conv2D(24, (5, 5), strides=(2, 2), activation='relu', kernel_regularizer=l2(0.0001)))
-model.add(Conv2D(36, (5, 5), strides=(2, 2), activation='relu', activity_regularizer=l1(0.0001)))
-model.add(Conv2D(48, (5, 5), strides=(2, 2), activation='relu', kernel_regularizer=l2(0.0001)))
-model.add(Conv2D(64, (5, 5), activation='relu'))
+model.add(Conv2D(24, (5, 5), strides=(2, 2), activation='relu', kernel_regularizer=l2(0.001)))
+model.add(Conv2D(36, (5, 5), strides=(2, 2), activation='relu', kernel_regularizer=l2(0.001)))
+model.add(Conv2D(48, (5, 5), strides=(2, 2), activation='relu', kernel_regularizer=l2(0.001)))
+model.add(Conv2D(64, (5, 5), activation='relu', kernel_regularizer=l2(0.001)))
 # Flatten the input.
 model.add(Flatten())
 #model.add(Dropout(0.2))
-model.add(Dense(100))
-model.add(GaussianNoise(0.1))
-model.add(Activation('relu'))
-model.add(Dense(50))
+model.add(Dense(100, kernel_regularizer=l2(0.001)))
 #model.add(GaussianNoise(0.1))
-#model.add(Activation('relu'))
-model.add(Dense(10))
+model.add(Activation('relu'))
+model.add(Dense(50, kernel_regularizer=l2(0.001)))
+#model.add(GaussianNoise(0.1))
+model.add(Activation('relu'))
+model.add(Dense(10, kernel_regularizer=l2(0.001)))
 # As we're doing regression here, we only need 1 output. 
 model.add(Dense(1))
 
 opt = SGD(lr = 0.01, momentum = 0.9)
-model.compile(optimizer=opt, loss='mean_squared_error')
+model.compile(optimizer='adam', loss='mean_squared_error')
 
 model.summary()
 
-callback = EarlyStopping(monitor='val_loss', mode = 'min', patience = 2)
+callback = EarlyStopping(monitor='val_loss', mode = 'min', patience = 1)
 
 history_object = model.fit_generator(train_generator, steps_per_epoch=math.ceil(len(train_samples)/batch_size), 
                     validation_data=validation_generator, validation_steps=math.ceil(len(validation_samples)/batch_size), 
-                    epochs=3, verbose=1, callbacks=[callback])
+                    epochs=5, verbose=1, callbacks=[callback])
 
 ### plot the training and validation loss for each epoch
 plt.plot(history_object.history['loss'])
