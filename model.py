@@ -130,13 +130,13 @@ model.add(Lambda(lambda x: (x / 255.0) - 0.5, input_shape=(90, 320, 3)))
 model.add(Conv2D(24, (5, 5), strides=(2, 2), activation='relu', kernel_regularizer=l2(0.001)))
 model.add(Conv2D(36, (5, 5), strides=(2, 2), activation='relu', kernel_regularizer=l2(0.001)))
 model.add(Conv2D(48, (5, 5), strides=(2, 2), activation='relu', kernel_regularizer=l2(0.001)))
-model.add(Conv2D(64, (5, 5), activation='relu', kernel_regularizer=l2(0.001)))
+model.add(Conv2D(64, (5, 5), activation='relu', activity_regularizer=l2(0.01)))
 # Flatten the input.
 model.add(Flatten())
-model.add(Dense(1164))
-model.add(Dropout(0.5))
 model.add(Dense(100))
+model.add(Dropout(0.5))
 model.add(Dense(50))
+model.add(Dense(10))
 # As we're doing regression here, we only need 1 output. 
 model.add(Dense(1))
 
