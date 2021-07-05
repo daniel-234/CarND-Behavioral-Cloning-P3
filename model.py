@@ -1,10 +1,11 @@
 import numpy as np
 import math
 from keras.models import Sequential
-from keras.layers import Flatten, Dense, Lambda, MaxPooling2D, Conv2D, Cropping2D, Dropout
+from keras.layers import Flatten, Dense, Lambda, MaxPooling2D, Conv2D, Cropping2D, Dropout, GaussianNoise, Activation
 from keras.callbacks import EarlyStopping
 from keras.optimizers import SGD
-from keras.regularizers import l2
+from keras.regularizers import l1, l2
+from keras.constraints import max_norm
 from sklearn.utils import shuffle
 from sklearn.model_selection import train_test_split
 import csv
@@ -47,7 +48,7 @@ def process_line(line):
     # Create a correction coefficient to apply to the left and right cameras.
     # The purpose of this correction is to teach the model to steer and recover
     # when it gets a little bit off track from the center.
-    steering_correction = 0.06
+    steering_correction = 0.045
     # Apply a positive correction to the left image to make it go back to the
     # center towards the right.
     steering_left = steering_center + steering_correction
@@ -105,13 +106,10 @@ with open('./data/driving_log.csv', 'r') as csvfile:
 train_samples, validation_samples = train_test_split(samples, test_size = 0.2)
         
 # Set the desired batch size.
-batch_size = 64
+batch_size = 32
 # Create generators for the training and validation data.
 train_generator = generator(train_samples, batch_size = batch_size)
 validation_generator = generator(validation_samples, batch_size = batch_size)
-
-# Create a L2 reguralizer
-reg = l2(0.01)
 
 model = Sequential()
 # Crop the images, as the top portion captures trees, hills and the sky,
@@ -125,31 +123,35 @@ model.add(Cropping2D(cropping=((50, 20), (0,0)), input_shape=(160, 320, 3)))
 # Center the image at 0 with pixels in range [-0.5, 0.5]
 # pixel_mean_centered = pixel_normalized - 0.5
 # After cropping vertically, images have now shape (90, 320, 3)
-model.add(Lambda(lambda x: (x / 255.0) - 0.5, input_shape=(90, 320, 3)))
+model.add(Lambda(lambda x: (x / 255.0) - 0.5, input_shape=(110, 320, 3)))
 # NVidia training architecture. 
-model.add(Conv2D(24, (5, 5), strides=(2, 2), activation='relu', kernel_regularizer=l2(0.001)))
-model.add(Conv2D(36, (5, 5), strides=(2, 2), activation='relu', kernel_regularizer=l2(0.001)))
-model.add(Conv2D(48, (5, 5), strides=(2, 2), activation='relu', kernel_regularizer=l2(0.001)))
-model.add(Conv2D(64, (5, 5), activation='relu', activity_regularizer=l2(0.01)))
+model.add(Conv2D(24, (5, 5), strides=(2, 2), activation='relu', kernel_regularizer=l2(0.0001)))
+model.add(Conv2D(36, (5, 5), strides=(2, 2), activation='relu', activity_regularizer=l1(0.0001)))
+model.add(Conv2D(48, (5, 5), strides=(2, 2), activation='relu', kernel_regularizer=l2(0.0001)))
+model.add(Conv2D(64, (5, 5), activation='relu'))
 # Flatten the input.
 model.add(Flatten())
+#model.add(Dropout(0.2))
 model.add(Dense(100))
-model.add(Dropout(0.5))
+model.add(GaussianNoise(0.1))
+model.add(Activation('relu'))
 model.add(Dense(50))
+#model.add(GaussianNoise(0.1))
+#model.add(Activation('relu'))
 model.add(Dense(10))
 # As we're doing regression here, we only need 1 output. 
 model.add(Dense(1))
 
-opt = SGD(lr = 0.001, momentum = 0.9)
-model.compile(optimizer=opt, loss='mean_squared_logarithmic_error')
+opt = SGD(lr = 0.01, momentum = 0.9)
+model.compile(optimizer=opt, loss='mean_squared_error')
 
 model.summary()
 
-callback = EarlyStopping(monitor='val_loss', patience = 2)
+callback = EarlyStopping(monitor='val_loss', mode = 'min', patience = 2)
 
 history_object = model.fit_generator(train_generator, steps_per_epoch=math.ceil(len(train_samples)/batch_size), 
                     validation_data=validation_generator, validation_steps=math.ceil(len(validation_samples)/batch_size), 
-                    epochs=10, verbose=1, callbacks=[callback])
+                    epochs=3, verbose=1, callbacks=[callback])
 
 ### plot the training and validation loss for each epoch
 plt.plot(history_object.history['loss'])
