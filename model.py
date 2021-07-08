@@ -19,11 +19,11 @@ def process_image(image_name, steering_angle):
     images = [] 
     measurements = []
     
-    # Build the local path to the image.  
+    # Build the local path to the image (change this depending on your path).
     local_path = '../../..' + image_name
     # Read the image and append ot to the list. 
     image = cv2.imread(local_path)
-    # Convert the image to RGB format, as the file that handles
+    # Convert the image to RGB format, because the file that handles
     # simulation uses that format (while cv2 uses BGR). 
     image_rgb = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
     images.append(image_rgb)    
@@ -42,8 +42,7 @@ def process_image(image_name, steering_angle):
 
 # Read images and measurements from a row of the CSV file. 
 def process_line(line):  
-    # Read the 4th column from the CSV file, that is the stearing 
-    # center angle and save it to the measurements list. 
+    # Read the stearing center angle fromn the 4th column of the csv file. 
     steering_center = float(line[3])
     # Create a correction coefficient to apply to the left and right cameras.
     # The purpose of this correction is to teach the model to steer and recover
@@ -54,12 +53,13 @@ def process_line(line):
     steering_left = steering_center + steering_correction
     # Apply a negative correction to the right image to make it go towards the left.
     steering_right = steering_center - steering_correction
-    # Read images from the center, left and right cameras (N.B. left and right paths 
-    # have leading space that needs to be removed).
+    # Read images from the center, left and right cameras 
+    # Left and right paths have a leading space that needs to be removed.
     image_center = line[0].strip()
     image_left = line[1].strip()
     image_right = line[2].strip()
     
+    # Get images and measurements from all the cameras in the car. 
     images_center, measurements_center = process_image(image_center, steering_center)
     images_left, measurements_left = process_image(image_left, steering_left)
     images_right, measurements_right =  process_image(image_right, steering_right)
@@ -132,7 +132,6 @@ model.add(Conv2D(64, (3, 3), activation='relu', kernel_regularizer=l2(0.001)))
 model.add(Conv2D(64, (3, 3), activation='relu', kernel_regularizer=l2(0.001)))
 # Flatten the input.
 model.add(Flatten())
-#model.add(Dropout(0.2))
 model.add(Dense(100, kernel_regularizer=l2(0.001)))
 model.add(GaussianNoise(0.1))
 model.add(Activation('relu'))
@@ -143,7 +142,6 @@ model.add(Dense(10, kernel_regularizer=l2(0.001)))
 # As we're doing regression here, we only need 1 output. 
 model.add(Dense(1))
 
-opt = SGD(lr = 0.01, momentum = 0.9)
 model.compile(optimizer='adam', loss='mean_squared_error')
 
 model.summary()
