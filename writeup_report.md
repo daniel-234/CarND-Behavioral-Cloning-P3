@@ -100,7 +100,7 @@ Then I added Noise Regularization to gain better robustness.
 
 The final step was to run the simulator again to see how well the car was driving around track one. There were a few spots, precisely the steepest curves, where the vehicle fell off the track. 
 To improve the driving behavior in these cases, I decided to collect a new set of data. Until now, in fact, I was using the data provided in the course. 
-So I collected two or three laps of center lane driving, one lap of recovery driving from the sides and
+So I collected two laps of center lane driving, one lap of recovery driving from the sides and
 one lap focusing on driving smoothly around curves, to improve the car ability on turning data. 
 
 At the end of the process, the vehicle is able to drive autonomously around the track without leaving the road.
@@ -130,7 +130,7 @@ To capture good driving behavior, I first recorded two laps on track one using c
 
 ![alt text][image2]
 
-I then recorded the vehicle recovering from the left side and right sides of the road back to center so that the vehicle would learn to .... These images show what a recovery looks like starting from ... :
+I then recorded the vehicle recovering from the left side and right sides of the road back to center so that the vehicle would learn to recover back to the center when it's on one side of the road. These images show what a recovery looks like starting from the left lane:
 
 ![alt text][image3]
 ![alt text][image4]
